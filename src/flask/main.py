@@ -29,9 +29,12 @@ def _logger():
     return log
 
 
-LOG = _logger()
-LOG.debug("Starting with log level: %s" % LOG_LEVEL)
-APP = Flask(__name__)
+def _get_jwt(user_data):
+    exp_time = datetime.datetime.utcnow() + datetime.timedelta(weeks=2)
+    payload = {'exp': exp_time,
+               'nbf': datetime.datetime.utcnow(),
+               'email': user_data['email']}
+    return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
 
 def require_jwt(function):
@@ -55,6 +58,11 @@ def require_jwt(function):
     return decorated_function
 
 
+LOG = _logger()
+LOG.debug("Starting with log level: %s" % LOG_LEVEL)
+APP = Flask(__name__)
+
+
 @APP.route('/', methods=['POST', 'GET'])
 def health():
     return jsonify("Healthy")
@@ -62,8 +70,35 @@ def health():
 
 @APP.route('/auth', methods=['POST'])
 def auth():
-    """
-    Create JWT token based on email.
+    """Create JWT token based on email.
+
+        URL:
+            /auth
+        Method:
+            POST
+        URL Params:
+            None
+        Data Params::
+            None
+
+        Success Response::
+
+            Code: 200
+            Content:
+            {
+              "token": "eyJ0ODbe...NgfW3_vibQWTffblx8"
+            }
+
+        Error Response::
+
+            None
+
+        Sample Call::
+
+             curl -X POST \
+             -d '{"email": "my_mail","password": "my_pass"}' \
+             -H 'Content-Type: application/json' \
+             -v http://localhost:8080/auth
     """
     request_data = request.get_json()
     email = request_data.get('email')
@@ -83,8 +118,37 @@ def auth():
 
 @APP.route('/contents', methods=['GET'])
 def decode_jwt():
-    """
-    Check user token and return non-secret data
+    """Check user token and return non-secret data
+
+        URL:
+            /contents
+        Method:
+            GET
+        URL Params:
+            None
+        Data Params::
+            None
+
+        Success Response::
+
+            Code: 200
+            Content:
+            {
+                "email": "wolf@thedoor.com",
+                "exp": 1610557267,
+                "nbf": 1609347667
+            }
+
+        Error Response::
+
+            Code: 401
+
+        Sample Call::
+
+             curl -X GET \
+             -H "Authorization: Bearer ${TOKEN}" \
+             -v http://localhost:8080/contents
+
     """
     if not 'Authorization' in request.headers:
         abort(401)
@@ -94,19 +158,10 @@ def decode_jwt():
         data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
     except:  # pylint: disable=bare-except
         abort(401)
-
     response = {'email': data['email'],
                 'exp': data['exp'],
                 'nbf': data['nbf']}
     return jsonify(**response)
-
-
-def _get_jwt(user_data):
-    exp_time = datetime.datetime.utcnow() + datetime.timedelta(weeks=2)
-    payload = {'exp': exp_time,
-               'nbf': datetime.datetime.utcnow(),
-               'email': user_data['email']}
-    return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
 
 if __name__ == '__main__':

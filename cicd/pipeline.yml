@@ -3,6 +3,14 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: EKSWSV1
 
 Parameters:
+  EksClusterName:
+    Type: String
+    Description: The name of the EKS cluster created
+    Default: eks-cicd-template-cluster
+    MinLength: 1
+    MaxLength: 100
+    ConstraintDescription: You must enter the EKS cluster name
+
   GitSourceRepo:
     Type: String
     Description: GitHub source repository - must contain a Dockerfile and buildspec.yml in the base
@@ -44,6 +52,11 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
+          default: EKS
+        Parameters:
+          - EksClusterName
+
+      - Label:
           default: GitHub
         Parameters:
           - GitHubUser
@@ -56,6 +69,9 @@ Metadata:
         Parameters:
           - CodeBuildDockerImage
     ParameterLabels:
+      EksClusterName:
+        default: EKS cluster name
+
       GitHubUser:
         default: Username
       GitHubToken:
@@ -67,9 +83,8 @@ Metadata:
 
       CodeBuildDockerImage:
         default: Docker image
+
 Resources:
-
-
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:

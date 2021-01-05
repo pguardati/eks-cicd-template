@@ -122,12 +122,12 @@ Resources:
                   - ecr:InitiateLayerUpload
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
-                - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactBucket}/*
-                  Effect: Allow
-                  Action:
-                    - s3:GetObject
-                    - s3:PutObject
-                    - s3:GetObjectVersion
+              - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetObjectVersion
   #              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${KubectlRoleName}
   #                Effect: Allow
   #                Action:

@@ -3,13 +3,6 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: EKSWSV1
 
 Parameters:
-  CodeBuildDockerImage:
-    Type: String
-    Default: aws/codebuild/standard:4.0
-    Description: AWS CodeBuild Docker optimized image
-    MinLength: 3
-    MaxLength: 100
-    ConstraintDescription: You must enter a CodeBuild Docker image
   GitSourceRepo:
     Type: String
     Description: GitHub source repository - must contain a Dockerfile and buildspec.yml in the base
@@ -39,13 +32,17 @@ Parameters:
     MaxLength: 100
     ConstraintDescription: You must enter a GitHub username or organizatio
 
+  CodeBuildDockerImage:
+    Type: String
+    Default: aws/codebuild/standard:4.0
+    Description: AWS CodeBuild Docker optimized image
+    MinLength: 3
+    MaxLength: 100
+    ConstraintDescription: You must enter a CodeBuild Docker image
+
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      - Label:
-          default: CodeBuild
-        Parameters:
-          - CodeBuildDockerImage
       - Label:
           default: GitHub
         Parameters:
@@ -53,9 +50,12 @@ Metadata:
           - GitHubToken
           - GitSourceRepo
           - GitBranch
+
+      - Label:
+          default: CodeBuild
+        Parameters:
+          - CodeBuildDockerImage
     ParameterLabels:
-      CodeBuildDockerImage:
-        default: Docker image
       GitHubUser:
         default: Username
       GitHubToken:
@@ -65,10 +65,88 @@ Metadata:
       GitBranch:
         default: Branch
 
+      CodeBuildDockerImage:
+        default: Docker image
 Resources:
 
-  EcrDockerRepository:
-    Type: AWS::ECR::Repository
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: codepipeline-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - codecommit:UploadArchive
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:CancelUploadArchive
+                  - iam:PassRole
+              - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+    DependsOn: CodePipelineArtifactBucket
+  CodePipelineGitHub:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref CodePipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: App
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              Configuration:
+                Owner: !Ref GitHubUser
+                Repo: !Ref GitSourceRepo
+                Branch: !Ref GitBranch
+                OAuthToken: !Ref GitHubToken
+              OutputArtifacts:
+                - Name: App
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: App
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+    DependsOn: CodeBuildProject
+  CodePipelineArtifactBucket:
+    Type: AWS::S3::Bucket
     DeletionPolicy: Retain
 
   CodeBuildServiceRole:
@@ -128,15 +206,14 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:GetObjectVersion
-  #              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${KubectlRoleName}
-  #                Effect: Allow
-  #                Action:
-  #                  - sts:AssumeRole
-  #              - Resource: '*'
-  #                Effect: Allow
-  #                Action:
-  #                  - eks:Describe*
-
+              - Resource: '*'
+                Effect: Allow
+                Action:
+                  - eks:Describe*
+#              - Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${KubectlRoleName}
+#                Effect: Allow
+#                Action:
+#                  - sts:AssumeRole
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -163,84 +240,6 @@ Resources:
       Name: !Ref AWS::StackName
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
   #    DependsOn: KubectlAssumeRoleCustomResource
-
-  CodePipelineServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codepipeline.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: codepipeline-access
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Resource: "*"
-                Effect: Allow
-                Action:
-                  - codebuild:StartBuild
-                  - codebuild:BatchGetBuilds
-                  - codecommit:GetBranch
-                  - codecommit:GetCommit
-                  - codecommit:UploadArchive
-                  - codecommit:GetUploadArchiveStatus
-                  - codecommit:CancelUploadArchive
-                  - iam:PassRole
-              - Resource: !Sub arn:aws:s3:::${CodePipelineArtifactBucket}/*
-                Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                  - s3:GetObjectVersion
-                  - s3:GetBucketVersioning
-    DependsOn: CodePipelineArtifactBucket
-
-  CodePipelineGitHub:
-    Type: AWS::CodePipeline::Pipeline
-    Properties:
-      RoleArn: !GetAtt CodePipelineServiceRole.Arn
-      ArtifactStore:
-        Type: S3
-        Location: !Ref CodePipelineArtifactBucket
-      Stages:
-        - Name: Source
-          Actions:
-            - Name: App
-              ActionTypeId:
-                Category: Source
-                Owner: ThirdParty
-                Version: 1
-                Provider: GitHub
-              Configuration:
-                Owner: !Ref GitHubUser
-                Repo: !Ref GitSourceRepo
-                Branch: !Ref GitBranch
-                OAuthToken: !Ref GitHubToken
-              OutputArtifacts:
-                - Name: App
-              RunOrder: 1
-        - Name: Build
-          Actions:
-            - Name: Build
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Version: 1
-                Provider: CodeBuild
-              Configuration:
-                ProjectName: !Ref CodeBuildProject
-              InputArtifacts:
-                - Name: App
-              OutputArtifacts:
-                - Name: BuildOutput
-              RunOrder: 1
-    DependsOn: CodeBuildProject
-
-  CodePipelineArtifactBucket:
-    Type: AWS::S3::Bucket
+  EcrDockerRepository:
+    Type: AWS::ECR::Repository
     DeletionPolicy: Retain

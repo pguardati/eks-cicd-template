@@ -30,7 +30,7 @@ phases:
       - export KUBECONFIG=$HOME/.kube/config
       # install environment in build environment and execute integration tests
       - pip3 install -r requirements.txt
-      - python -m unittest discover tests/test_main.py
+      - python -m unittest discover tests
 
   build:
     commands:

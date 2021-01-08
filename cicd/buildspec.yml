@@ -1,0 +1,56 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      # initialise docker daemon
+      - echo 'about to call dockerd'
+      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
+      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+      # download aws authenticator and kubectl executables
+      - curl -sS -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-07-26/bin/linux/amd64/aws-iam-authenticator
+      - curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+      - chmod +x ./kubectl ./aws-iam-authenticator
+      - echo `kubectl version`
+      # setup python environment
+      - export PATH=$PWD/:$PATH
+      - python -m pip install --upgrade --force pip
+      - apt-get update && apt-get -y install jq  && pip install --upgrade awscli
+
+  pre_build:
+    commands:
+      # generate destination tag of the docker image
+      - TAG="$REPOSITORY_NAME.$REPOSITORY_BRANCH.$ENVIRONMENT_NAME.$(date +%Y-%m-%d.%H.%M.%S).$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
+      # add the destination image to the kubernetes configuration of this application
+      - sed -i 's@CONTAINER_IMAGE@'"$REPOSITORY_URI:$TAG"'@' cicd/kubeconfig_jwt_api.yml
+      # login on aws and export kubernetes configuration
+      - $(aws ecr get-login --no-include-email)
+      - export KUBECONFIG=$HOME/.kube/config
+      # install environment in build environment and execute integration tests
+      - pip3 install -r requirements.txt
+      - python -m unittest discover tests/test_main.py
+
+  build:
+    commands:
+      - docker build -f cicd/Dockerfile --tag $REPOSITORY_URI:$TAG .
+
+  post_build:
+    commands:
+      # push the image in the registry of the stack
+      - docker push $REPOSITORY_URI:$TAG
+      # apply deployment permissions to kubernetes cluster
+      - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
+      # apply deployment settings
+      - kubectl apply -f cicd/kubeconfig_jwt_api.yml
+      # create the artifact
+      - printf '[{"name":"simple_jwt_api","imageUri":"%s"}]' $REPOSITORY_URI:$TAG > build.json
+
+
+artifacts:
+  files: build.json
+
+#env:
+#  parameter-store:
+#    JWT_SECRET: JWT_SECRET

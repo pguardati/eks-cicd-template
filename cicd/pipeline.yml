@@ -14,7 +14,7 @@ Parameters:
   EksClusterName:
     Type: String
     Description: The name of the EKS cluster created
-    Default: eks-cicd-template-cluster
+    Default: eks-cicd-template
     MinLength: 1
     MaxLength: 100
     ConstraintDescription: You must enter the EKS cluster name
@@ -374,6 +374,7 @@ Resources:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
+        BuildSpec: cicd/buildspec.yml
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Type: LINUX_CONTAINER

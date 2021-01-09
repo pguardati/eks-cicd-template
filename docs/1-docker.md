@@ -1,17 +1,17 @@
 # Docker: how to containerise a flask API
 
-- create a Docker image
+- Create a Docker image
 ```
 docker build . -f cicd/Dockerfile -t jwt-api-test
 ```
 
-- create the environment variables in `config/.env_file`:
+- Create the environment variables in `config/.env_file`:
 ```
 JWT_SECRET='abc123abc1234'
 LOG_LEVEL=INFO
 ```
 
-- run the image locally
+- Run the image locally
 ```
 docker run \
 --rm \
@@ -21,15 +21,14 @@ docker run \
 jwt-api-test 
 ```
 
-check if the api inside the docker is able to get a token:
+- Check if the api inside the docker is able to get a token:
 ```
 TOKEN=`curl -d '{"email":"'wolf@thedoor.com'","password":"huff-puff"}' -H "Content-Type: application/json" -X POST 0.0.0.0:80/auth  | jq -r '.token'`
 curl --request GET '0.0.0.0:80/contents' -H "Authorization: Bearer ${TOKEN}" | jq 
 ```
-check if the api inside can authenticate a token:
+- Check if the api inside can authenticate a token:
 ```
-PUBLIC_IP=0.0.0.0:80
-curl -d '{"email":"'wolf@thedoor.com'","password":"huff-puff"}' -H "Content-Type: application/json" -X POST $PUBLIC_IP/auth
+curl -d '{"email":"'wolf@thedoor.com'","password":"huff-puff"}' -H "Content-Type: application/json" -X POST 0.0.0.0:80/auth
 ```
 
 Note: 

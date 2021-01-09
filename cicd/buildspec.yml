@@ -5,6 +5,7 @@ phases:
     runtime-versions:
       python: 3.7
     commands:
+      - echo $JWT_SECRET
       # initialise docker daemon
       - echo 'about to call dockerd'
       - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
@@ -23,8 +24,9 @@ phases:
     commands:
       # generate destination tag of the docker image
       - TAG="$REPOSITORY_NAME.$REPOSITORY_BRANCH.$ENVIRONMENT_NAME.$(date +%Y-%m-%d.%H.%M.%S).$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
-      # add the destination image to the kubernetes configuration of this application
+      # fill destination image and jwt value in the kubernetes configuration
       - sed -i 's@CONTAINER_IMAGE@'"$REPOSITORY_URI:$TAG"'@' cicd/kubeconfig_jwt_api.yml
+      - sed -i 's@JWT_SECRET_VALUE@'$JWT_SECRET'@' cicd/kubeconfig_jwt_api.yml
       # login on aws and export kubernetes configuration
       - $(aws ecr get-login --no-include-email)
       - export KUBECONFIG=$HOME/.kube/config
@@ -51,6 +53,6 @@ phases:
 artifacts:
   files: build.json
 
-#env:
-#  parameter-store:
-#    JWT_SECRET: JWT_SECRET
+env:
+  parameter-store:
+    JWT_SECRET: JWT_SECRET

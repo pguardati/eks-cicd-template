@@ -2,19 +2,18 @@ import os
 import json
 import unittest
 
+# make the test secret available to main
+os.environ['JWT_SECRET'] = 'abc123abc1234'
 from src.flask import main
-
-SECRET = 'abc123abc1234'
-EMAIL = 'wolf@thedoor.com'
-PASSWORD = 'huff-puff'
 
 
 class TestEndpoints(unittest.TestCase):
 
     def setUp(self):
-        os.environ['JWT_SECRET'] = SECRET
         main.APP.config['TESTING'] = True
         self.client = main.APP.test_client()
+        self.email = 'wolf@thedoor.com'
+        self.password = 'huff-puff'
 
     def test_health(self):
         response = self.client.get('/')
@@ -24,7 +23,7 @@ class TestEndpoints(unittest.TestCase):
     def test_auth(self):
         response = self.client.post(
             '/auth',
-            data=json.dumps({'email': EMAIL, 'password': PASSWORD}),
+            data=json.dumps({'email': self.email, 'password': self.password}),
             content_type='application/json'
         )
         self.assertEqual(200, response.status_code)
@@ -34,7 +33,7 @@ class TestEndpoints(unittest.TestCase):
         # get token
         response = self.client.post(
             '/auth',
-            data=json.dumps({'email': EMAIL, 'password': PASSWORD}),
+            data=json.dumps({'email': self.email, 'password': self.password}),
             content_type='application/json'
         )
         token = response.json['token']
@@ -49,4 +48,3 @@ class TestEndpoints(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -16,7 +16,7 @@ kubectl get services --all-namespaces
 ```
 Check if the token is retrievable
 ```
-PUBLIC_IP=a08d7322c3a4b45b9bb95a47987094c7-342059003.us-west-2.elb.amazonaws.com
+PUBLIC_IP=$ServicePublicIp
 curl -d '{"email":"'wolf@thedoor.com'","password":"huff-puff"}' -H "Content-Type: application/json" -X POST $PUBLIC_IP/auth
 ```
 Get the token and the private content

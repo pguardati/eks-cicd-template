@@ -1,38 +1,64 @@
-# Deploying a Flask API
+# eks-cicd-template
+This repository contains a template to containerize and deploy a Flask API 
+to a Kubernetes cluster using Docker, AWS EKS, CodePipeline, and CodeBuild.
+This project has been done as the final step of the CICD Module 
+of Udacity's Full Stack Web Developer Nanodegree.
 
-This is the project starter repo for the fourth course in the [Udacity Full Stack Nanodegree](https://www.udacity.com/course/full-stack-web-developer-nanodegree--nd004): Server Deployment, Containerization, and Testing.
+## Application description
+The Flask application that has been used has three endpoints:
+- `GET '/'`: A health check, which returns the response 'Healthy'. 
+- `POST '/auth'`: It takes email and password as json arguments. It returns a WT based on a custom secret.
+- `GET '/contents'`: This requires a valid JWT. It returns the decrypted contents of that token. 
+The app relies on a secret set as the environment variable `JWT_SECRET` to produce a JWT. 
 
-In this project you will containerize and deploy a Flask API to a Kubernetes cluster using Docker, AWS EKS, CodePipeline, and CodeBuild.
+## Development Setup
+To execute the code locally:
+Add the current project folder path to PYTHONPATH.  
+In ~/.bashrc, append:
+```
+PYTHONPATH=your/path/to/repo:$PYTHONPATH 
+export PYTHONPATH
+```
+e.g.
+```
+PYTHONPATH=~/PycharmProjects/eks-cicd-template:$PYTHONPATH 
+export PYTHONPATH
+```
 
-The Flask app that will be used for this project consists of a simple API with three endpoints:
+To install and activate the environment:
+```
+conda create --name eks-cicd-template python=3.7
+pip install -r requirements.txt
+```
 
-- `GET '/'`: This is a simple health check, which returns the response 'Healthy'. 
-- `POST '/auth'`: This takes a email and password as json arguments and returns a JWT based on a custom secret.
-- `GET '/contents'`: This requires a valid JWT, and returns the un-encrpyted contents of that token. 
+To run the Flask server locally:
+```
+export JWT_SECRET=MySecretCode
+export FLASK_APP=src/flask/main.py
+flask run --port=80 --host='0.0.0.0'
+```
 
-The app relies on a secret set as the environment variable `JWT_SECRET` to produce a JWT. The built-in Flask server is adequate for local development, but not production, so you will be using the production-ready [Gunicorn](https://gunicorn.org/) server when deploying the app.
+Check that the request is computed without errors:
+```
+TOKEN=`curl -d '{"email":"'wolf@thedoor.com'","password":"huff-puff"}' -H "Content-Type: application/json" -X POST 0.0.0.0:80/auth  | jq -r '.token'`
+curl --request GET '0.0.0.0:80/contents' -H "Authorization: Bearer ${TOKEN}" | jq 
+```
 
-## Initial setup
-1. Fork this project to your Github account.
-2. Locally clone your forked version to begin working on the project.
+##Tests
+To run the unittests, run:
+```
+python -m unittest discover tests
+```
 
-## Dependencies
-
+## Other Dependencies
+- Github Account
+- AWS Account
 - Docker Engine
-    - Installation instructions for all OSes can be found [here](https://docs.docker.com/install/).
-    - For Mac users, if you have no previous Docker Toolbox installation, you can install Docker Desktop for Mac. If you already have a Docker Toolbox installation, please read [this](https://docs.docker.com/docker-for-mac/docker-toolbox/) before installing.
- - AWS Account
-     - You can create an AWS account by signing up [here](https://aws.amazon.com/#).
      
-## Project Steps
+## Documentation:
+[1. Docker: how to containerise a flask API](./docs/1-docker.md)
+2. EKS: how to create a Kubernetes cluster
+3. CloudFormation: how to create a stack of resources to trigger a cicd pipeline
+4. CodeBuild: how to build and deploy a Docker Image
+5. ShutdownOperations: how to delete the Cluster, the Stack of resources and the sensitive parameters
 
-Completing the project involves several steps:
-
-1. Write a Dockerfile for a simple Flask API
-2. Build and test the container locally
-3. Create an EKS cluster
-4. Store a secret using AWS Parameter Store
-5. Create a CodePipeline pipeline triggered by GitHub checkins
-6. Create a CodeBuild stage which will build, test, and deploy your code
-
-For more detail about each of these steps, see the project lesson [here](https://classroom.udacity.com/nanodegrees/nd004/parts/1d842ebf-5b10-4749-9e5e-ef28fe98f173/modules/ac13842f-c841-4c1a-b284-b47899f4613d/lessons/becb2dac-c108-4143-8f6c-11b30413e28d/concepts/092cdb35-28f7-4145-b6e6-6278b8dd7527).
